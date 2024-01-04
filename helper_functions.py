@@ -3,37 +3,38 @@ import scipy as sp
 from scipy import special
 
 def layout_generate(general_para):
-    N = general_para.n_links
-    # first, generate transmitters' coordinates
-    tx_xs = np.random.uniform(low=0, high=general_para.field_length, size=[N,1])
-    tx_ys = np.random.uniform(low=0, high=general_para.field_length, size=[N,1])
+    N = general_para.n_links # N是link的数目
+    # first, generate transmitters' coordinates 首先，生成发射端的坐标
+    tx_xs = np.random.uniform(low=0, high=general_para.field_length, size=[N,1])  # 发射端的x坐标
+    tx_ys = np.random.uniform(low=0, high=general_para.field_length, size=[N,1])  # 发射端的y坐标
     while(True): # loop until a valid layout generated
         # generate rx one by one rather than N together to ensure checking validity one by one
+        # 逐个生成rx，而不是一起生成N个，确保可以逐个检查有效性
         rx_xs = []; rx_ys = []
         for i in range(N):
             got_valid_rx = False
             while(not got_valid_rx):
-                pair_dist = np.random.uniform(low=general_para.shortest_directLink_length, high=general_para.longest_directLink_length)
-                pair_angles = np.random.uniform(low=0, high=np.pi*2)
-                rx_x = tx_xs[i] + pair_dist * np.cos(pair_angles)
-                rx_y = tx_ys[i] + pair_dist * np.sin(pair_angles)
+                pair_dist = np.random.uniform(low=general_para.shortest_directLink_length, high=general_para.longest_directLink_length)  # 生成D2D的direct_link的距离
+                pair_angles = np.random.uniform(low=0, high=np.pi*2)  # 生成direct_link的方位角
+                rx_x = tx_xs[i] + pair_dist * np.cos(pair_angles)  # 生成rx的x坐标，cos用于向x轴投影
+                rx_y = tx_ys[i] + pair_dist * np.sin(pair_angles)  # 生成rx的y坐标，cos用于向y轴投影
                 if(0<=rx_x<=general_para.field_length and 0<=rx_y<=general_para.field_length):
                     got_valid_rx = True
             rx_xs.append(rx_x); rx_ys.append(rx_y)
-        # For now, assuming equal weights and equal power, so not generating them
-        layout = np.concatenate((tx_xs, tx_ys, rx_xs, rx_ys), axis=1)
+        # For now, assuming equal weights and equal power, so not generating them 假设等功率等权重发射
+        layout = np.concatenate((tx_xs, tx_ys, rx_xs, rx_ys), axis=1)  # layout（布局）：将坐标按列合并，即横向合并。
         distances = np.zeros([N, N])
-        # compute distance between every possible Tx/Rx pair
+        # compute distance between every possible Tx/Rx pair 计算每一个可能的收发对（包含干扰link）之间的距离
         for rx_index in range(N):
             for tx_index in range(N):
-                tx_coor = layout[tx_index][0:2]
-                rx_coor = layout[rx_index][2:4]
+                tx_coor = layout[tx_index][0:2]  # [0:2]就是0，1，即tx的x、y坐标
+                rx_coor = layout[rx_index][2:4]  # [2：4]就是2，3，即rx的x、y坐标
                 # according to paper notation convention, Hij is from jth transmitter to ith receiver
-                distances[rx_index][tx_index] = np.linalg.norm(tx_coor - rx_coor)
-        # Check whether a tx-rx link (potentially cross-link) is too close
+                distances[rx_index][tx_index] = np.linalg.norm(tx_coor - rx_coor)  # 求矩阵或向量的范数，linalg=linear+algebra，即线性代数
+        # Check whether a tx-rx link (potentially cross-link) is too close 检查是否有相距过近的干扰对
         if(np.min(distances)>general_para.shortest_crossLink_length):
                  break
-    return layout, distances
+    return layout, distances  # 返回tx、rx的位置坐标以及所有链路的距离
 
 def compute_SINRs(general_para, allocs, directlink_channel_losses, crosslink_channel_losses):
     assert np.shape(directlink_channel_losses) == np.shape(allocs), \
@@ -56,7 +57,7 @@ def get_crossLink_channel_losses(channel_losses):
     return channel_losses * ((np.identity(N) < 1).astype(float))
 
 #r is the channel correlation coefficient
-def add_fast_fading_sequence(timesteps, train_path_losses):
+def add_fast_fading_sequence(timesteps, train_path_losses):  # timesteps为帧的数目
     n = np.shape(train_path_losses)
     n_links = np.multiply(n[1],n[2])
     channel_losses_sequence = np.zeros((n[0],timesteps,n[1],n[2]))

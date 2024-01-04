@@ -16,11 +16,11 @@ import time
 class init_parameters():
     def __init__(self):
         # wireless network settings
-        self.n_links = train_K
+        self.n_links = train_K  # 这里是D2D直连链路数目
         self.field_length = 500
         self.shortest_directLink_length = 2
         self.longest_directLink_length = 40
-        self.shortest_crossLink_length = 1
+        self.shortest_crossLink_length = 1  # crosslink即干扰链路，设置最小干扰链路距离防止产生过大的干扰
         self.bandwidth = 5e6
         self.carrier_f = 2.4e9
         self.tx_height = 1.5
@@ -33,14 +33,14 @@ class init_parameters():
         self.output_noise_power = self.input_noise_power
         self.setting_str = "{}_links_{}X{}_{}_{}_length".format(self.n_links, self.field_length, self.field_length, self.shortest_directLink_length, self.longest_directLink_length)
 
-def normalize_data(train_data,test_data):
+def normalize_data(train_data,test_data):  # 将数据标准化
     #normalize train directlink
-    mask = np.eye(train_K)
-    train_copy = np.copy(train_data)
-    diag_H = np.multiply(mask,train_copy)
-    diag_mean = np.sum(diag_H)/train_layouts/train_K/frame_num
-    diag_var = np.sqrt(np.sum(np.square(diag_H))/train_layouts/train_K/frame_num)
-    tmp_diag = (diag_H - diag_mean)/diag_var
+    mask = np.eye(train_K)  # 生成对角1矩阵
+    train_copy = np.copy(train_data)  # 生成副本
+    diag_H = np.multiply(mask,train_copy)  # 用对角矩阵提取直连链路信道系数
+    diag_mean = np.sum(diag_H)/train_layouts/train_K /frame_num  # 计算直连链路H均值
+    diag_var = np.sqrt(np.sum(np.square(diag_H))/train_layouts/train_K/frame_num)  # 计算标准差
+    tmp_diag = (diag_H - diag_mean)/diag_var  # 标准化为正态分布
     #normalize train interference link
     off_diag = train_copy - diag_H
     off_diag_mean = np.sum(off_diag)/train_layouts/train_K/(train_K-1)/frame_num
@@ -48,7 +48,7 @@ def normalize_data(train_data,test_data):
     tmp_off = (off_diag - off_diag_mean)/off_diag_var
     tmp_off_diag = tmp_off - np.multiply(tmp_off,mask)
     
-    norm_train = np.multiply(tmp_diag,mask) + tmp_off_diag
+    norm_train = np.multiply(tmp_diag,mask) + tmp_off_diag  # 规范化后的数据
     
     # normlize test
     mask = np.eye(test_K)
@@ -187,11 +187,11 @@ def test():
     return total_loss / test_layouts / frame_num
 
 
-train_K = 20
-test_K = 20
-train_layouts = 2000
-test_layouts = 500
-frame_num = 10
+train_K = 20  # 20个D2D对用于训练
+test_K = 20  # 20个D2D对用于测试
+train_layouts = 2000    # 2000个不同的训练集
+test_layouts = 500    # 500个不同的测试集
+frame_num = 10  # 10帧
 test_config = init_parameters()
 train_config = init_parameters()
 var = train_config.output_noise_power / train_config.tx_power
@@ -203,11 +203,11 @@ overhead_mp = 5
 print('Data generation')
 #Data generation
 #Train data
-layouts, train_dists = wg.generate_layouts(train_config, train_layouts)
-train_path_losses = wg.compute_path_losses(train_config, train_dists)
-train_channel_losses = helper_functions.add_fast_fading_sequence(frame_num, train_path_losses)
-#Treat multiple frames as multiple samples for MPNN
-train_channel_losses = train_channel_losses.reshape(train_layouts*frame_num,train_K,train_K)
+layouts, train_dists = wg.generate_layouts(train_config, train_layouts)  # 创建训练集个数的tx、rx分布以及所有链路的距离信息（相当于生成训练集个数的地图）
+train_path_losses = wg.compute_path_losses(train_config, train_dists)  # 计算所有链路的路径损耗的绝对值
+train_channel_losses = helper_functions.add_fast_fading_sequence(frame_num, train_path_losses)  # 在每一个帧加入快衰落
+#Treat multiple frames as multiple samples for MPNN 在MPNN中将多个帧视为多个采样
+train_channel_losses = train_channel_losses.reshape(train_layouts*frame_num,train_K,train_K)  # 信道系数作为训练集
 #Test data 
 layouts, test_dists = wg.generate_layouts(test_config, test_layouts)
 test_path_losses = wg.compute_path_losses(test_config, test_dists)
